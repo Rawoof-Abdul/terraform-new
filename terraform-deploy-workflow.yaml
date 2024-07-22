@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: terraform-deploy-
+spec:
+  entrypoint: main
+  templates:
+  - name: main
+    steps:
+    - - name: clone-repo
+        template: git-clone
+    - - name: terraform-init
+        template: terraform
+        arguments:
+          parameters:
+          - name: command
+            value: init
+    - - name: terraform-apply
+        template: terraform
+        arguments:
+          parameters:
+          - name: command
+            value: apply -auto-approve
+  
+  - name: git-clone
+    inputs: {}
+    container:
+      image: alpine/git
+      command: ["/bin/sh", "-c"]
+      args: ["git clone https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY.git /workspace"]
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+    volumes:
+    - name: workspace
+      emptyDir: {}
+  
+  - name: terraform
+    inputs:
+      parameters:
+      - name: command
+    container:
+      image: hashicorp/terraform:light
+      command: ["/bin/sh", "-c"]
+      args: ["terraform ${command}"]
+      workingDir: /workspace
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+      - name: aws-secret
+        mountPath: /root/.aws
+        subPath: aws-secret
+    volumes:
+    - name: workspace
+      emptyDir: {}
+    - name: aws-secret
+      secret:
+        secretName: aws-secret
+
