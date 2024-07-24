@@ -9,6 +9,8 @@ spec:
     steps:
     - - name: clone-repo
         template: git-clone
+    - - name: verify-repo
+        template: verify-repo
     - - name: terraform-init
         template: terraform
         arguments:
@@ -21,20 +23,38 @@ spec:
           parameters:
           - name: command
             value: apply -auto-approve
-  
+
   - name: git-clone
-    inputs: {}
     container:
       image: alpine/git
       command: ["/bin/sh", "-c"]
-      args: ["git clone https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY.git /workspace"]
+      args:
+        - |
+          git clone https://Rawoof-Abdul:Raw%40021192@github.com/Rawoof-Abdul/terraform-new.git /workspace && \
+          ls -al /workspace
       volumeMounts:
       - name: workspace
         mountPath: /workspace
     volumes:
     - name: workspace
       emptyDir: {}
-  
+
+  - name: verify-repo
+    container:
+      image: busybox
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          echo "Verifying contents of /workspace:" && \
+          ls -al /workspace && \
+          echo "Contents verified."
+      volumeMounts:
+      - name: workspace
+        mountPath: /workspace
+    volumes:
+    - name: workspace
+      emptyDir: {}
+
   - name: terraform
     inputs:
       parameters:
@@ -42,8 +62,22 @@ spec:
     container:
       image: hashicorp/terraform:light
       command: ["/bin/sh", "-c"]
-      args: ["terraform ${command}"]
-      workingDir: /workspace
+      args:
+        - |
+          echo "Checking Terraform command availability:" && \
+          which terraform && \
+          terraform version && \
+          echo "Terraform command is available. Proceeding with ${command}" && \
+          echo "Working directory before change: $(pwd)" && \
+          cd /workspace && \
+          echo "Working directory after change: $(pwd)" && \
+          echo "Contents of /workspace:" && \
+          ls -al && \
+          echo "Environment variables:" && \
+          env && \
+          echo "Running terraform ${command}" && \
+          terraform ${command} || echo "Terraform command failed with exit code $?" && \
+          echo "Terraform ${command} completed"
       volumeMounts:
       - name: workspace
         mountPath: /workspace
@@ -56,4 +90,3 @@ spec:
     - name: aws-secret
       secret:
         secretName: aws-secret
-
